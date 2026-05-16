@@ -1,63 +1,57 @@
 package diff
 
-// KeyStatus represents the comparison status of a key across environments.
-type KeyStatus string
+import "sort"
 
-const (
-	StatusMissing   KeyStatus = "missing"
-	StatusMismatch  KeyStatus = "mismatch"
-	StatusMatch     KeyStatus = "match"
-)
-
-// Result holds the comparison result for a single key.
+// Result holds the comparison outcome for a single key across environments.
 type Result struct {
 	Key    string            `json:"key"`
-	Status KeyStatus         `json:"status"`
-	Values map[string]string `json:"values,omitempty"`
+	Status string            `json:"status"` // "match", "missing", "mismatch"
+	Values map[string]string `json:"values"`
 }
 
-// Compare takes a map of environment name -> parsed key/value pairs and
-// returns a slice of Result describing missing or mismatched keys.
+// Compare takes a map of environment name -> key/value pairs and returns
+// a slice of Result describing the diff across all environments.
 func Compare(envs map[string]map[string]string) []Result {
-	allKeys := collectKeys(envs)
-	envNames := envNames(envs)
+	keys := collectKeys(envs)
+	names := envNames(envs)
 
 	var results []Result
+	for _, key := range keys {
+		values := make(map[string]string, len(names))
+		for _, name := range names {
+			values[name] = envs[name][key]
+		}
 
-	for _, key := range allKeys {
-		values := make(map[string]string)
-		presentIn := 0
-
-		for _, env := range envNames {
-			if val, ok := envs[env][key]; ok {
-				values[env] = val
-				presentIn++
+		status := "match"
+		for _, name := range names {
+			if _, ok := envs[name][key]; !ok {
+				status = "missing"
+				break
 			}
 		}
-
-		if presentIn < len(envNames) {
-			results = append(results, Result{Key: key, Status: StatusMissing, Values: values})
-			continue
+		if status != "missing" && hasMismatch(values) {
+			status = "mismatch"
 		}
 
-		if hasMismatch(values) {
-			results = append(results, Result{Key: key, Status: StatusMismatch, Values: values})
-		}
+		results = append(results, Result{
+			Key:    key,
+			Status: status,
+			Values: values,
+		})
 	}
-
 	return results
 }
 
 func collectKeys(envs map[string]map[string]string) []string {
 	seen := make(map[string]struct{})
-	var keys []string
 	for _, kv := range envs {
 		for k := range kv {
-			if _, ok := seen[k]; !ok {
-				seen[k] = struct{}{}
-				keys = append(keys, k)
-			}
+			seen[k] = struct{}{}
 		}
+	}
+	keys := make([]string, 0, len(seen))
+	for k := range seen {
+		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 	return keys
@@ -73,15 +67,15 @@ func envNames(envs map[string]map[string]string) []string {
 }
 
 func hasMismatch(values map[string]string) bool {
-	var first string
-	set := false
+	var ref string
+	first := true
 	for _, v := range values {
-		if !set {
-			first = v
-			set = true
+		if first {
+			ref = v
+			first = false
 			continue
 		}
-		if v != first {
+		if v != ref {
 			return true
 		}
 	}
