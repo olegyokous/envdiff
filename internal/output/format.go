@@ -56,3 +56,8 @@ func Write(results []diff.Result, opts WriterOptions) error {
 		return fmt.Errorf("unknown format: %s", opts.Format)
 	}
 }
+
+// SupportedFormats returns the list of all recognized format strings.
+func SupportedFormats() []Format {
+	return []Format{FormatText, FormatJSON}
+}
