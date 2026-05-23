@@ -73,6 +73,20 @@ func TestGenerate_ValueWithSpacesQuoted(t *testing.T) {
 	}
 }
 
+// TestGenerate_EmptyEnv verifies that generating a template from an empty
+// environment map produces no key=value lines (only an optional header).
+func TestGenerate_EmptyEnv(t *testing.T) {
+	var buf bytes.Buffer
+	opts := template.Options{Redact: false, Header: ""}
+	if err := template.Generate(&buf, map[string]string{}, opts); err != nil {
+		t.Fatal(err)
+	}
+	out := strings.TrimSpace(buf.String())
+	if out != "" {
+		t.Errorf("expected empty output for empty env, got: %s", out)
+	}
+}
+
 func TestWriteFile_CreatesFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".env.example")
