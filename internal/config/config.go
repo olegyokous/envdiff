@@ -1,33 +1,41 @@
+// Package config parses and validates CLI configuration for envdiff.
 package config
 
 import (
 	"errors"
 	"flag"
 	"strings"
+
+	"github.com/your-org/envdiff/internal/output"
+	"github.com/your-org/envdiff/internal/redact"
 )
 
-// Options holds the parsed CLI configuration for an envdiff run.
-type Options struct {
-	Files      []string
-	Format     string
-	StatusFilter string
-	KeyPrefix  string
-	KeyPattern string
-	NoColor    bool
-	ExitCode   bool
+// Config holds all resolved configuration for a single envdiff run.
+type Config struct {
+	Files         []string
+	Format        output.Format
+	StatusFilter  string
+	KeyPrefix     string
+	KeyPattern    string
+	IgnoreFile    string
+	BaselineFile  string
+	SaveBaseline  bool
+	NoSummary     bool
+	RedactList    *redact.List
+	RedactKeys    []string
 }
 
-// Parse reads command-line arguments and returns a populated Options struct.
-// It returns an error if required arguments are missing or invalid.
-func Parse(args []string) (*Options, error) {
-	fs := flag.NewFlagSet("envdiff", flag.ContinueOnError)
-
-	format := fs.String("format", "text", "Output format: text or json")
-	statusFilter := fs.String("status", "", "Filter by status: ok, missing, mismatch")
-	keyPrefix := fs.String("prefix", "", "Only include keys with this prefix")
-	keyPattern := fs.String("pattern", "", "Only include keys matching this regex pattern")
-	noColor := fs.Bool("no-color", false, "Disable colored output")
-	exitCode := fs.Bool("exit-code", false, "Exit with non-zero code if differences found")
+// Parse reads os.Args via the provided FlagSet and returns a validated Config.
+func Parse(fs *flag.FlagSet, args []string) (*Config, error) {
+	format := fs.String("format", "text", "output format: text or json")
+	status := fs.String("status", "", "filter by status: missing, mismatch, match")
+	prefix := fs.String("key-prefix", "", "only include keys with this prefix")
+	pattern := fs.String("key-pattern", "", "only include keys matching this regex")
+	ignoreFile := fs.String("ignore-file", "", "path to .envignore file")
+	baselineFile := fs.String("baseline", "", "path to baseline JSON file")
+	saveBaseline := fs.Bool("save-baseline", false, "write current results as new baseline")
+	noSummary := fs.Bool("no-summary", false, "suppress summary line")
+	redactKeys := fs.String("redact", "", "comma-separated list of additional key patterns to redact")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, err
@@ -35,26 +43,35 @@ func Parse(args []string) (*Options, error) {
 
 	files := fs.Args()
 	if len(files) < 2 {
-		return nil, errors.New("at least two .env files must be provided")
+		return nil, errors.New("at least two .env files are required")
 	}
 
-	*format = strings.ToLower(strings.TrimSpace(*format))
-	if *format != "text" && *format != "json" {
-		return nil, errors.New("invalid format: must be \"text\" or \"json\"")
+	fmt, err := output.ParseFormat(*format)
+	if err != nil {
+		return nil, err
 	}
 
-	validStatuses := map[string]bool{"ok": true, "missing": true, "mismatch": true, "": true}
-	if !validStatuses[strings.ToLower(*statusFilter)] {
-		return nil, errors.New("invalid status filter: must be ok, missing, or mismatch")
+	patterns := redact.DefaultSensitivePatterns
+	if *redactKeys != "" {
+		for _, k := range strings.Split(*redactKeys, ",") {
+			k = strings.TrimSpace(k)
+			if k != "" {
+				patterns = append(patterns, k)
+			}
+		}
 	}
 
-	return &Options{
+	return &Config{
 		Files:        files,
-		Format:       *format,
-		StatusFilter: strings.ToLower(*statusFilter),
-		KeyPrefix:    *keyPrefix,
-		KeyPattern:   *keyPattern,
-		NoColor:      *noColor,
-		ExitCode:     *exitCode,
+		Format:       fmt,
+		StatusFilter: *status,
+		KeyPrefix:    *prefix,
+		KeyPattern:   *pattern,
+		IgnoreFile:   *ignoreFile,
+		BaselineFile: *baselineFile,
+		SaveBaseline: *saveBaseline,
+		NoSummary:    *noSummary,
+		RedactList:   redact.NewList(patterns),
+		RedactKeys:   patterns,
 	}, nil
 }
