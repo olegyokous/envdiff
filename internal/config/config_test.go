@@ -99,3 +99,13 @@ func TestParse_Flags(t *testing.T) {
 		t.Error("expected NoSummary to be true")
 	}
 }
+
+func TestParse_ThreeOrMoreFiles(t *testing.T) {
+	cfg, err := config.Parse(newFS(), []string{"a.env", "b.env", "c.env"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cfg.Files) != 3 {
+		t.Errorf("expected 3 files, got %d", len(cfg.Files))
+	}
+}
