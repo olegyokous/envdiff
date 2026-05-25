@@ -85,3 +85,15 @@ func TestLoadFile_MissingFile(t *testing.T) {
 		t.Error("expected error for missing file")
 	}
 }
+
+func TestLoadFile_EmptyFile(t *testing.T) {
+	path := writeIgnoreFile(t, "")
+	l, err := ignore.LoadFile(path)
+	if err != nil {
+		t.Fatalf("unexpected error for empty file: %v", err)
+	}
+	results := l.Apply(sampleResults())
+	if len(results) != len(sampleResults()) {
+		t.Errorf("expected all results preserved for empty ignore file, got %d", len(results))
+	}
+}
