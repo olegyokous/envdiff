@@ -19,6 +19,20 @@ const (
 	CodeError Code = 2
 )
 
+// String returns a human-readable label for the exit code.
+func (c Code) String() string {
+	switch c {
+	case CodeOK:
+		return "OK"
+	case CodeMismatch:
+		return "MISMATCH"
+	case CodeError:
+		return "ERROR"
+	default:
+		return "UNKNOWN"
+	}
+}
+
 // FromResults derives the appropriate exit code from a slice of diff results.
 // Returns CodeMismatch if any result has a non-match status, otherwise CodeOK.
 func FromResults(results []diff.Result) Code {
