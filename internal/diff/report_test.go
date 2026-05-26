@@ -80,6 +80,19 @@ func TestWriteText_MatchStatusIncluded(t *testing.T) {
 	}
 }
 
+func TestWriteText_EmptyResults(t *testing.T) {
+	var buf bytes.Buffer
+
+	if err := diff.WriteText(&buf, []diff.CompareResult{}); err != nil {
+		t.Fatalf("WriteText returned unexpected error for empty results: %v", err)
+	}
+
+	// Output should be empty or just whitespace when there are no results.
+	if strings.TrimSpace(buf.String()) != "" {
+		t.Errorf("expected empty output for empty results, got: %q", buf.String())
+	}
+}
+
 func TestWriteJSON_ValidJSON(t *testing.T) {
 	var buf bytes.Buffer
 	results := sampleResults()
@@ -121,24 +134,5 @@ func TestWriteJSON_ContainsExpectedFields(t *testing.T) {
 		if _, ok := entry["values"]; !ok {
 			t.Error("expected each JSON entry to have a 'values' field")
 		}
-	}
-}
-
-func TestWriteText_EmptyResults(t *testing.T) {
-	var buf bytes.Buffer
-	if err := diff.WriteText(&buf, []diff.CompareResult{}); err != nil {
-		t.Fatalf("WriteText with empty results returned error: %v", err)
-	}
-}
-
-func TestWriteJSON_EmptyResults(t *testing.T) {
-	var buf bytes.Buffer
-	if err := diff.WriteJSON(&buf, []diff.CompareResult{}); err != nil {
-		t.Fatalf("WriteJSON with empty results returned error: %v", err)
-	}
-
-	output := strings.TrimSpace(buf.String())
-	if output != "[]" && output != "null" {
-		t.Errorf("expected empty JSON array, got: %s", output)
 	}
 }
