@@ -31,3 +31,15 @@ func (r Result) IsMismatch() bool { return r.Status == StatusMismatch }
 
 // IsMatch reports whether the result represents a full match.
 func (r Result) IsMatch() bool { return r.Status == StatusMatch }
+
+// MissingIn returns the names of environments that do not define the key.
+// It returns nil if no environments are missing the key.
+func (r Result) MissingIn() []string {
+	var envs []string
+	for env, val := range r.Values {
+		if val == "" {
+			envs = append(envs, env)
+		}
+	}
+	return envs
+}
